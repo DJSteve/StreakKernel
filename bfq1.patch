@@ -1,0 +1,208 @@
+ block/blk-ioc.c           |   27 +++++++++++++++------------
+ block/cfq-iosched.c       |   10 +++++++---
+ fs/ioprio.c               |    9 +++++++--
+ include/linux/iocontext.h |   18 +++++++++++++++---
+ 4 files changed, 44 insertions(+), 20 deletions(-)
+
+diff --git a/block/blk-ioc.c b/block/blk-ioc.c
+index d22c4c5..52ebea9 100644
+--- a/block/blk-ioc.c
++++ b/block/blk-ioc.c
+@@ -5,6 +5,7 @@
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/bio.h>
++#include <linux/bitmap.h>
+ #include <linux/blkdev.h>
+ #include <linux/bootmem.h>	/* for max_pfn/max_low_pfn */
+ #include <linux/slab.h>
+@@ -16,13 +17,12 @@
+  */
+ static struct kmem_cache *iocontext_cachep;
+ 
+-static void cfq_dtor(struct io_context *ioc)
++static void hlist_sched_dtor(struct io_context *ioc, struct hlist_head *list)
+ {
+-	if (!hlist_empty(&ioc->cic_list)) {
++	if (!hlist_empty(list)) {
+ 		struct cfq_io_context *cic;
+ 
+-		cic = list_entry(ioc->cic_list.first, struct cfq_io_context,
+-								cic_list);
++		cic = list_entry(list->first, struct cfq_io_context, cic_list);
+ 		cic->dtor(ioc);
+ 	}
+ }
+@@ -40,7 +40,9 @@ int put_io_context(struct io_context *ioc)
+ 
+ 	if (atomic_long_dec_and_test(&ioc->refcount)) {
+ 		rcu_read_lock();
+-		cfq_dtor(ioc);
++
++		hlist_sched_dtor(ioc, &ioc->cic_list);
++		hlist_sched_dtor(ioc, &ioc->bfq_cic_list);
+ 		rcu_read_unlock();
+ 
+ 		kmem_cache_free(iocontext_cachep, ioc);
+@@ -50,15 +52,14 @@ int put_io_context(struct io_context *ioc)
+ }
+ EXPORT_SYMBOL(put_io_context);
+ 
+-static void cfq_exit(struct io_context *ioc)
++static void hlist_sched_exit(struct io_context *ioc, struct hlist_head *list)
+ {
+ 	rcu_read_lock();
+ 
+-	if (!hlist_empty(&ioc->cic_list)) {
++	if (!hlist_empty(list)) {
+ 		struct cfq_io_context *cic;
+ 
+-		cic = list_entry(ioc->cic_list.first, struct cfq_io_context,
+-								cic_list);
++		cic = list_entry(list->first, struct cfq_io_context, cic_list);
+ 		cic->exit(ioc);
+ 	}
+ 	rcu_read_unlock();
+@@ -75,8 +76,8 @@ void exit_io_context(struct task_struct *task)
+ 	task_unlock(task);
+ 
+ 	if (atomic_dec_and_test(&ioc->nr_tasks)) {
+-		cfq_exit(ioc);
+-
++		hlist_sched_exit(ioc, &ioc->cic_list);
++		hlist_sched_exit(ioc, &ioc->bfq_cic_list);
+ 	}
+ 	put_io_context(ioc);
+ }
+@@ -90,12 +91,14 @@ struct io_context *alloc_io_context(gfp_t gfp_flags, int node)
+ 		atomic_long_set(&ret->refcount, 1);
+ 		atomic_set(&ret->nr_tasks, 1);
+ 		spin_lock_init(&ret->lock);
+-		ret->ioprio_changed = 0;
++		bitmap_zero(ret->ioprio_changed, IOC_IOPRIO_CHANGED_BITS);
+ 		ret->ioprio = 0;
+ 		ret->last_waited = 0; /* doesn't matter... */
+ 		ret->nr_batch_requests = 0; /* because this is 0 */
+ 		INIT_RADIX_TREE(&ret->radix_root, GFP_ATOMIC | __GFP_HIGH);
+ 		INIT_HLIST_HEAD(&ret->cic_list);
++		INIT_RADIX_TREE(&ret->bfq_radix_root, GFP_ATOMIC | __GFP_HIGH);
++		INIT_HLIST_HEAD(&ret->bfq_cic_list);
+ 		ret->ioc_data = NULL;
+ 	}
+ 
+diff --git a/block/cfq-iosched.c b/block/cfq-iosched.c
+index adb6112..8ed33f3 100644
+--- a/block/cfq-iosched.c
++++ b/block/cfq-iosched.c
+@@ -2694,7 +2694,6 @@ static void changed_ioprio(struct io_context *ioc, struct cfq_io_context *cic)
+ static void cfq_ioc_set_ioprio(struct io_context *ioc)
+ {
+ 	call_for_each_cic(ioc, changed_ioprio);
+-	ioc->ioprio_changed = 0;
+ }
+ 
+ static void cfq_init_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq,
+@@ -2980,8 +2979,13 @@ cfq_get_io_context(struct cfq_data *cfqd, gfp_t gfp_mask)
+ 		goto err_free;
+ 
+ out:
+-	smp_read_barrier_depends();
+-	if (unlikely(ioc->ioprio_changed))
++	/*
++	 * test_and_clear_bit() implies a memory barrier, paired with
++	 * the wmb() in fs/ioprio.c, so the value seen for ioprio is the
++	 * new one.
++	 */
++	if (unlikely(test_and_clear_bit(IOC_CFQ_IOPRIO_CHANGED,
++					ioc->ioprio_changed)))
+ 		cfq_ioc_set_ioprio(ioc);
+ 
+ #ifdef CONFIG_CFQ_GROUP_IOSCHED
+diff --git a/fs/ioprio.c b/fs/ioprio.c
+index 748cfb9..3232045 100644
+--- a/fs/ioprio.c
++++ b/fs/ioprio.c
+@@ -30,7 +30,7 @@
+ 
+ int set_task_ioprio(struct task_struct *task, int ioprio)
+ {
+-	int err;
++	int err, i;
+ 	struct io_context *ioc;
+ 	const struct cred *cred = current_cred(), *tcred;
+ 
+@@ -60,12 +60,17 @@ int set_task_ioprio(struct task_struct *task, int ioprio)
+ 			err = -ENOMEM;
+ 			break;
+ 		}
++		/* let other ioc users see the new values */
++		smp_wmb();
+ 		task->io_context = ioc;
+ 	} while (1);
+ 
+ 	if (!err) {
+ 		ioc->ioprio = ioprio;
+-		ioc->ioprio_changed = 1;
++		/* make sure schedulers see the new ioprio value */
++		wmb();
++		for (i = 0; i < IOC_IOPRIO_CHANGED_BITS; i++)
++			set_bit(i, ioc->ioprio_changed);
+ 	}
+ 
+ 	task_unlock(task);
+diff --git a/include/linux/iocontext.h b/include/linux/iocontext.h
+index a0bb301..bbe110c 100644
+--- a/include/linux/iocontext.h
++++ b/include/linux/iocontext.h
+@@ -1,15 +1,15 @@
+ #ifndef IOCONTEXT_H
+ #define IOCONTEXT_H
+ 
++#include <linux/bitmap.h>
+ #include <linux/radix-tree.h>
+ #include <linux/rcupdate.h>
+ 
+-struct cfq_queue;
+ struct cfq_io_context {
+ 	void *key;
+ 	unsigned long dead_key;
+ 
+-	struct cfq_queue *cfqq[2];
++	void *cfqq[2];
+ 
+ 	struct io_context *ioc;
+ 
+@@ -29,6 +29,16 @@ struct cfq_io_context {
+ };
+ 
+ /*
++ * Indexes into the ioprio_changed bitmap.  A bit set indicates that
++ * the corresponding I/O scheduler needs to see a ioprio update.
++ */
++enum {
++	IOC_CFQ_IOPRIO_CHANGED,
++	IOC_BFQ_IOPRIO_CHANGED,
++	IOC_IOPRIO_CHANGED_BITS
++};
++
++/*
+  * I/O subsystem state of the associated processes.  It is refcounted
+  * and kmalloc'ed. These could be shared between processes.
+  */
+@@ -40,7 +50,7 @@ struct io_context {
+ 	spinlock_t lock;
+ 
+ 	unsigned short ioprio;
+-	unsigned short ioprio_changed;
++	DECLARE_BITMAP(ioprio_changed, IOC_IOPRIO_CHANGED_BITS);
+ 
+ #if defined(CONFIG_BLK_CGROUP) || defined(CONFIG_BLK_CGROUP_MODULE)
+ 	unsigned short cgroup_changed;
+@@ -54,6 +64,8 @@ struct io_context {
+ 
+ 	struct radix_tree_root radix_root;
+ 	struct hlist_head cic_list;
++	struct radix_tree_root bfq_radix_root;
++	struct hlist_head bfq_cic_list;
+ 	void *ioc_data;
+ };
