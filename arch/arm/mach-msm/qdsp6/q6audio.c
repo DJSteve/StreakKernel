@@ -62,8 +62,8 @@ struct q6_hw_info {
 #define HW_VOLUME_TUNING
 
 
-#define HW_DEFAULT_MAX_VOLUME	2000
-#define HW_DEFAULT_MIN_VOLUME	-2000
+#define HW_DEFAULT_MAX_VOLUME	4000
+#define HW_DEFAULT_MIN_VOLUME	-4000
 
 static s32 handset_max_gain 		= HW_DEFAULT_MAX_VOLUME;
 static s32 handset_min_gain 		= HW_DEFAULT_MIN_VOLUME;
