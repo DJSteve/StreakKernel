@@ -35,7 +35,7 @@
 
 
 
-#define AUO_REPORT_POINTS     2
+#define AUO_REPORT_POINTS     4
 #define AUO_INT_ENABLE        0x08
 #define AUO_INT_POL_HIGH      0x04
 #define AUO_INT_POL_LOW       0x00
@@ -137,7 +137,7 @@
 
 
 
-#define TS_PENUP_TIMEOUT_MS 10
+#define TS_PENUP_TIMEOUT_MS 5
 
 enum auo_touch_state {
     RELEASE = 0,

@@ -32,7 +32,6 @@
 #include "dal_acdb.h"
 #include "dal_adie.h"
 #include <mach/msm_qdsp6_audio.h>
-#include <mach/htc_acoustic_qsd.h>
 
 #include <linux/msm_audio_aac.h>
 
@@ -63,8 +62,8 @@ struct q6_hw_info {
 #define HW_VOLUME_TUNING
 
 
-#define HW_DEFAULT_MAX_VOLUME	602
-#define HW_DEFAULT_MIN_VOLUME	-903
+#define HW_DEFAULT_MAX_VOLUME	2000
+#define HW_DEFAULT_MIN_VOLUME	-2000
 
 static s32 handset_max_gain 		= HW_DEFAULT_MAX_VOLUME;
 static s32 handset_min_gain 		= HW_DEFAULT_MIN_VOLUME;
@@ -488,37 +487,6 @@ static int audio_command(struct audio_client *ac, uint32_t cmd)
 	memset(&rpc, 0, sizeof(rpc));
 	rpc.opcode = cmd;
 	return audio_ioctl(ac, &rpc, sizeof(rpc));
-}
-
-struct audio_client *q6fm_open(void)
-{
-  struct audio_client *ac;
-
-  if (q6audio_init())
-
-    return 0;
-
-/*  if (audio_rx_device_id != ADSP_AUDIO_DEVICE_ID_HEADSET_SPKR_STEREO &&
-      audio_rx_device_id != ADSP_AUDIO_DEVICE_ID_SPKR_PHONE_MONO)
-    return 0;
-*/
-  ac = audio_client_alloc(0);
-  if (!ac)
-    return 0;
-
-  ac->flags = AUDIO_FLAG_WRITE;
-  audio_rx_path_enable(1, 0);
-  enable_aux_loopback(1);
-
-  return ac;
-}
-
-int q6fm_close(struct audio_client *ac)
-{
-  audio_rx_path_enable(0, 0);
-  enable_aux_loopback(0);
-  audio_client_free(ac);
-  return 0;
 }
 
 static int audio_open_control(struct audio_client *ac)
