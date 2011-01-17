@@ -47,7 +47,7 @@
 
 #define DEEP_SLEEP_MODE 1
 #define	LCD_PWR_OFF	1
-#define MDDI_FB_PORTRAIT 1
+#define MDDI_FB_PORTRAIT 0
 #define ESD_SOLUTION 1
 
 

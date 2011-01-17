@@ -127,7 +127,7 @@ obj-$(CONFIG_FB_OMAP)             += omap/
 obj-$(CONFIG_XEN_FBDEV_FRONTEND)  += xen-fbfront.o
 obj-$(CONFIG_FB_CARMINE)          += carminefb.o
 obj-$(CONFIG_FB_MB862XX)	  += mb862xx/
-ifdef CONFIG_HW_AUSTIN
+ ifdef CONFIG_HW_AUSTIN
 	obj-$(CONFIG_FB_MSM)	  += msm_austin/
 else	
 ifdef CONFIG_HW_TOUCAN
