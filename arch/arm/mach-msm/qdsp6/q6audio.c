@@ -62,7 +62,7 @@ struct q6_hw_info {
 #define HW_VOLUME_TUNING
 
 
-#define HW_DEFAULT_MAX_VOLUME	20000
+#define HW_DEFAULT_MAX_VOLUME	4000
 #define HW_DEFAULT_MIN_VOLUME	-903
 
 static s32 handset_max_gain 		= HW_DEFAULT_MAX_VOLUME;
@@ -102,15 +102,15 @@ module_param(bt_a2dp_min_gain, int, 0644);
 static struct q6_hw_info q6_audio_hw[Q6_HW_COUNT] = {
 	[Q6_HW_HANDSET] = {
 		.min_gain = -903,
-		.max_gain = 20000,
+		.max_gain = 4000,
 	},
 	[Q6_HW_HEADSET] = {
 		.min_gain = -903,
-		.max_gain = 20000,
+		.max_gain = 4000,
 	},
 	[Q6_HW_SPEAKER] = {
 		.min_gain = -903,
-		.max_gain = 20000,
+		.max_gain = 4000,
 	},
 	[Q6_HW_TTY] = {
 		.min_gain = 0,
@@ -118,11 +118,11 @@ static struct q6_hw_info q6_audio_hw[Q6_HW_COUNT] = {
 	},
 	[Q6_HW_BT_SCO] = {
 		.min_gain = -903,
-		.max_gain = 20000,
+		.max_gain = 4000,
 	},
 	[Q6_HW_BT_A2DP] = {
 		.min_gain = -903,
-		.max_gain = 20000,
+		.max_gain = 4000,
 	},
 };
 
@@ -1566,7 +1566,7 @@ void q6audio_pmic_speaker_enable(int en)
 
 int q6audio_set_stream_volume(struct audio_client *ac, int vol)
 {
-	if (vol > 1200 || vol < -4000) {
+	if (vol > 40000 || vol < -4000) {
 		pr_err("[%s:%s] unsupported volume level %d\n", __MM_FILE__,
 				__func__, vol);
 		return -EINVAL;
