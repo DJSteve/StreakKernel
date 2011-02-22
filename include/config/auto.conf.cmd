@@ -97,7 +97,6 @@ deps_config := \
 	drivers/staging/quatech_usb2/Kconfig \
 	drivers/staging/serqt_usb2/Kconfig \
 	drivers/staging/octeon/Kconfig \
-	drivers/gpu/drm/radeon/Kconfig \
 	drivers/staging/line6/Kconfig \
 	drivers/staging/p9auth/Kconfig \
 	drivers/staging/phison/Kconfig \

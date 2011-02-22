@@ -405,7 +405,8 @@ void dma_free_coherent(struct device *dev, size_t size, void *cpu_addr, dma_addr
 	int idx;
 	u32 off;
 
-	WARN_ON(irqs_disabled());
+	// HCD_LOCAL_MEM: WARNING: at arch/arm/mm/dma-mapping.c:408 dma_free_coherent
+ 	///  WARN_ON(irqs_disabled());
 
 	if (dma_release_from_coherent(dev, get_order(size), cpu_addr))
 		return;

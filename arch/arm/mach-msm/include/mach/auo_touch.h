@@ -6,7 +6,7 @@
 
 #ifdef CONFIG_AUO_5INCH_TOUCHSCREEN
 #define USE_AUO_5INCH       1
-#define TOUCH_FB_PORTRAIT   1
+#define TOUCH_FB_PORTRAIT   0
 #if defined (CONFIG_MACH_EVB) || defined(CONFIG_MACH_EVT0)
 #define CONFIG_PANEL        0
 #define PERIODICAL_INT_MODE 1
@@ -22,20 +22,21 @@
 #define PERIODICAL_INT_MODE 0
 #define TOUCH_INDI_INT_MODE 0
 #define COORD_COMP_INT_MODE 1
-#define USE_PIXCIR
+#define USE_PIXCIR	    1
 #endif
 #else   
 #define USE_AUO_5INCH       0
 #define CONFIG_PANEL        1
 #define PERIODICAL_INT_MODE 0
-#define TOUCH_INDI_INT_MODE 1
-#define COORD_COMP_INT_MODE 0 
+#define TOUCH_INDI_INT_MODE 0
+#define COORD_COMP_INT_MODE 1 
+#define USE_PIXCIR          1
 #endif  
 
 
 
 
-#define AUO_REPORT_POINTS     4
+#define AUO_REPORT_POINTS     2
 #define AUO_INT_ENABLE        0x08
 #define AUO_INT_POL_HIGH      0x04
 #define AUO_INT_POL_LOW       0x00
@@ -45,21 +46,6 @@
 
 
 #if USE_AUO_5INCH
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #if defined(TOUCH_FB_PORTRAIT)
 	#define AUO_X_MAX	     480
@@ -89,8 +75,8 @@
 #define AUO_TOUCH_STRENGTH_X 0x0E
 #else
 #define AUO_X1_LSB           0x40
-#define AUO_X_SENSITIVITY    0x65  
-#define AUO_Y_SENSITIVITY    0x64  
+#define AUO_X_SENSITIVITY    0x70  
+#define AUO_Y_SENSITIVITY    0x6F  
 #define AUO_INT_SETTING      0x66
 #define AUO_INT_WIDTH        0x67
 #define AUO_POWER_MODE       0x69
@@ -137,7 +123,7 @@
 
 
 
-#define TS_PENUP_TIMEOUT_MS 5
+#define TS_PENUP_TIMEOUT_MS 100
 
 enum auo_touch_state {
     RELEASE = 0,

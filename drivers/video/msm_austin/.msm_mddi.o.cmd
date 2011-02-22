@@ -1,0 +1,1 @@
+cmd_drivers/video/msm_austin/msm_mddi.o := /root/adam/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-ld -EL    -r -o drivers/video/msm_austin/msm_mddi.o drivers/video/msm_austin/mddi.o drivers/video/msm_austin/mddihost.o drivers/video/msm_austin/mddihosti.o 

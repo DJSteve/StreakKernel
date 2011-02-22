@@ -1240,7 +1240,7 @@ static struct msm_tsif_platform_data tsif_platform_data = {
 /* TSIF end   */
 
 #ifdef CONFIG_QSD_SVS
-#define TPS65023_MAX_DCDC1	1600
+#define TPS65023_MAX_DCDC1	1900
 #else
 #define TPS65023_MAX_DCDC1	CONFIG_QSD_PMIC_DEFAULT_DCDC1
 #endif

@@ -1,0 +1,1 @@
+cmd_drivers/input/keyboard/built-in.o :=  /root/adam/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-ld -EL    -r -o drivers/input/keyboard/built-in.o drivers/input/keyboard/atkbd.o drivers/input/keyboard/i2ccapkbd.o 

@@ -174,7 +174,7 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	int bl_lvl;
 
 	if (value > MAX_BACKLIGHT_BRIGHTNESS)
-		value = MAX_BACKLIGHT_BRIGHTNESS;
+	value = MAX_BACKLIGHT_BRIGHTNESS;
 
 	
 	bl_lvl = (2 * value * mfd->panel_info.bl_max + MAX_BACKLIGHT_BRIGHTNESS)

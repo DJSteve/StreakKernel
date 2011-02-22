@@ -45,6 +45,8 @@ enum spkr_gain {
 	SPKR_GAIN_PLUS04DB,       /* +04 db */
 	SPKR_GAIN_PLUS08DB,       /* +08 db */
 	SPKR_GAIN_PLUS12DB,       /* +12 db */
+        SPKR_GAIN_PLUS16DB,       /* +16 db */
+        SPKR_GAIN_PLUS20DB,       /* +20 db */
 };
 
 enum spkr_dly {

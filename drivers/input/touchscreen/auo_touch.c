@@ -45,7 +45,7 @@
 extern atomic_t psensor_approached;
 #endif
 
-#define GETTOUCHLOG_AFTER_SCREENOFF 1
+#define GETTOUCHLOG_AFTER_SCREENOFF 0
 #if GETTOUCHLOG_AFTER_SCREENOFF
 atomic_t GetTouchLog1AfterLaterResume = ATOMIC_INIT(0);
 atomic_t GetTouchLog2AfterLaterResume = ATOMIC_INIT(0);
@@ -226,6 +226,10 @@ static void ts_report_coord_via_mt_protocol(struct ts_t *pTS, struct auo_point_i
 			input_report_abs(pTS->input, ABS_MT_WIDTH_MAJOR, 0);
 			input_report_abs(pTS->input, ABS_MT_POSITION_X, 0);
 			input_report_abs(pTS->input, ABS_MT_POSITION_Y, 0);
+                        input_report_abs(pTS->input, ABS_PRESSURE, 0);
+                        input_report_abs(pTS->input, ABS_TOOL_WIDTH, 0);
+                        input_report_key(pTS->input, BTN_TOUCH, 0);
+
             if( printReport )
 			    TCH_DBG("%s: point[%d] release\n", __func__, i);
 		}
@@ -235,6 +239,10 @@ static void ts_report_coord_via_mt_protocol(struct ts_t *pTS, struct auo_point_i
 			input_report_abs(pTS->input, ABS_MT_WIDTH_MAJOR, 10);
 			input_report_abs(pTS->input, ABS_MT_POSITION_X, (pInfo+i)->coord.x);
 			input_report_abs(pTS->input, ABS_MT_POSITION_Y, (pInfo+i)->coord.y);
+			input_report_abs(pTS->input, ABS_PRESSURE, 128);
+			input_report_abs(pTS->input, ABS_TOOL_WIDTH, 2);
+         		input_report_key(pTS->input, BTN_TOUCH, 1);
+			
             if( printReport )
 			    TCH_DBG("%s: point[%d] down at (%d,%d)\n",
                            __func__, i, (pInfo+i)->coord.x, (pInfo+i)->coord.y);
@@ -308,7 +316,7 @@ static void ts_report_coord( struct ts_t *pTS,
         input_report_abs(pTS->input, ABS_Y, mt_points[0].coord.y);
         input_report_key(pTS->input, BTN_TOUCH, 1);
     } else {
-        input_report_key(pTS->input, BTN_TOUCH, 0);
+        input_report_key(pTS->input, BTN_TOUCH, 1);
     }
     input_sync(pTS->input);
 
@@ -1042,15 +1050,10 @@ static int ts_register_input( struct input_dev **input,
     input_dev->close = ts_close;
     input_dev->event = ts_event;
 
-    input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+    input_dev->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
     input_dev->absbit[0] = BIT(ABS_X) | BIT(ABS_Y);
-    #if 0
-    
     input_dev->absbit[BIT_WORD(ABS_HAT0X)] |= BIT(ABS_HAT0X) | BIT(ABS_HAT0Y);
     input_dev->keybit[BIT_WORD(BTN_BASE2)] |= BIT_MASK(BTN_BASE2);
-    
-    #endif
-    
     input_dev->keybit[BIT_WORD(BTN_TOUCH)] |= BIT_MASK(BTN_TOUCH);
 
     
@@ -1062,14 +1065,14 @@ static int ts_register_input( struct input_dev **input,
         y_max = AUO_Y_MAX;
     }
 
-    input_set_abs_params(input_dev, ABS_X, 0, x_max, 0, 0);
-    input_set_abs_params(input_dev, ABS_Y, 0, y_max, 0, 0);
-    
+    input_set_abs_params(input_dev, ABS_X, 0, AUO_X_MAX, 0, 0);
+    input_set_abs_params(input_dev, ABS_Y, 0, AUO_Y_MAX, 0, 0);
+    input_set_abs_params(input_dev, ABS_TOOL_WIDTH, 0, 1, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, AUO_X_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, AUO_Y_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,  0, AUO_X_MAX, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR,  0, AUO_X_MAX, 0, 0);
-
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, 255, 0, 0);
     rc = input_register_device( input_dev );
 
     if ( rc )
