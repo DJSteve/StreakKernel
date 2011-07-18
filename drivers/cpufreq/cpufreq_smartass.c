@@ -15,7 +15,7 @@
  * Author: Erasmux
  *
  * Based on the interactive governor By Mike Chan (mike@android.com)
- * which was adaptated to 2.6.29 kernel by Nadlabak (pavel@doshaska.net)                     
+ * which was adaptated to 2.6.29 kernel by Nadlabak (pavel@doshaska.net)
  * 
  * requires to add
  * EXPORT_SYMBOL_GPL(nr_running);
@@ -62,14 +62,14 @@ static unsigned int suspended;
  * The minimum amount of time to spend at a frequency before we can ramp down,
  * default is 45ms.
  */
-#define DEFAULT_DOWN_RATE_US 99000;
+#define DEFAULT_DOWN_RATE_US 45000;
 static unsigned long down_rate_us;
 
 /*
  * When ramping up frequency with no idle cycles jump to at least this frequency.
  * Zero disables. Set a very high value to jump to policy max freqeuncy.
  */
-#define DEFAULT_UP_MIN_FREQ 999999
+#define DEFAULT_UP_MIN_FREQ 537600
 static unsigned int up_min_freq;
 
 /*
@@ -78,15 +78,8 @@ static unsigned int up_min_freq;
  * to minimize wakeup issues.
  * Set sleep_max_freq=0 to disable this behavior.
  */
-#define DEFAULT_SLEEP_MAX_FREQ CONFIG_MSM_CPU_FREQ_MIN
+#define DEFAULT_SLEEP_MAX_FREQ 460800
 static unsigned int sleep_max_freq;
-
-/*
- * The frequency to set when waking up from sleep.
- * When sleep_max_freq=0 this will have no effect.
- */
-#define DEFAULT_SLEEP_WAKEUP_FREQ CONFIG_MSM_CPU_FREQ_MAX
-static unsigned int sleep_wakeup_freq;
 
 /*
  * Sampling rate, I highly recommend to leave it at 2.
@@ -98,13 +91,13 @@ static unsigned int sample_rate_jiffies;
  * Freqeuncy delta when ramping up.
  * zero disables causes to always jump straight to max frequency.
  */
-#define DEFAULT_RAMP_UP_STEP 352000
+#define DEFAULT_RAMP_UP_STEP 76800
 static unsigned int ramp_up_step;
 
 /*
  * Max freqeuncy delta when ramping down. zero disables.
  */
-#define DEFAULT_MAX_RAMP_DOWN 352000
+#define DEFAULT_MAX_RAMP_DOWN 384000
 static unsigned int max_ramp_down;
 
 /*
@@ -116,7 +109,7 @@ static unsigned long max_cpu_load;
 /*
  * CPU freq will be decreased if measured load < min_cpu_load;
  */
-#define DEFAULT_MIN_CPU_LOAD 30
+#define DEFAULT_MIN_CPU_LOAD 40
 static unsigned long min_cpu_load;
 
 
@@ -129,14 +122,9 @@ static
 struct cpufreq_governor cpufreq_gov_smartass = {
 	.name = "smartass",
 	.governor = cpufreq_governor_smartass,
-	.max_transition_latency = 9000000,
+	.max_transition_latency = 6000000,
 	.owner = THIS_MODULE,
 };
-
-static void reset_timer(unsigned long cpu, struct smartass_info_s *this_smartass) {
-  this_smartass->time_in_idle = get_cpu_idle_time_us(cpu, &this_smartass->idle_exit_time);
-  mod_timer(&this_smartass->timer, jiffies + sample_rate_jiffies);
-}
 
 static void cpufreq_smartass_timer(unsigned long data)
 {
@@ -175,8 +163,11 @@ static void cpufreq_smartass_timer(unsigned long data)
 	 * firing. So setup another timer to fire to check cpu utlization.
 	 * Do not setup the timer if there is no scheduled work.
 	 */
-	if (!timer_pending(&this_smartass->timer) && nr_running() > 0)
-          reset_timer(data,this_smartass);
+	if (!timer_pending(&this_smartass->timer) && nr_running() > 0) { 
+			this_smartass->time_in_idle = get_cpu_idle_time_us(
+					data, &this_smartass->idle_exit_time);
+			mod_timer(&this_smartass->timer, jiffies + sample_rate_jiffies);
+	}
 
 	if (policy->cur == policy->min)
 		return;
@@ -203,8 +194,11 @@ static void cpufreq_idle(void)
 			return;
 
 	/* Timer to fire in 1-2 ticks, jiffie aligned. */
-	if (timer_pending(&this_smartass->timer) == 0)
-		reset_timer(smp_processor_id(), this_smartass);
+	if (timer_pending(&this_smartass->timer) == 0) {
+		this_smartass->time_in_idle = get_cpu_idle_time_us(
+				smp_processor_id(), &this_smartass->idle_exit_time);
+		mod_timer(&this_smartass->timer, jiffies + sample_rate_jiffies);
+	}
 }
 
 /*
@@ -362,24 +356,6 @@ static ssize_t store_sleep_max_freq(struct cpufreq_policy *policy, const char *b
 static struct freq_attr sleep_max_freq_attr = __ATTR(sleep_max_freq, 0644,
 		show_sleep_max_freq, store_sleep_max_freq);
 
-static ssize_t show_sleep_wakeup_freq(struct cpufreq_policy *policy, char *buf)
-{
-	return sprintf(buf, "%u\n", sleep_wakeup_freq);
-}
-
-static ssize_t store_sleep_wakeup_freq(struct cpufreq_policy *policy, const char *buf, size_t count)
-{
-        ssize_t res;
-	unsigned long input;
-	res = strict_strtoul(buf, 0, &input);
-	if (res >= 0 && input >= 0)
-	  sleep_wakeup_freq = input;
-	return res;
-}
-
-static struct freq_attr sleep_wakeup_freq_attr = __ATTR(sleep_wakeup_freq, 0644,
-		show_sleep_wakeup_freq, store_sleep_wakeup_freq);
-
 static ssize_t show_sample_rate_jiffies(struct cpufreq_policy *policy, char *buf)
 {
 	return sprintf(buf, "%u\n", sample_rate_jiffies);
@@ -474,7 +450,6 @@ static struct attribute * smartass_attributes[] = {
 	&down_rate_us_attr.attr,
 	&up_min_freq_attr.attr,
 	&sleep_max_freq_attr.attr,
-        &sleep_wakeup_freq_attr.attr,
 	&sample_rate_jiffies_attr.attr,
 	&ramp_up_step_attr.attr,
 	&max_ramp_down_attr.attr,
@@ -517,6 +492,9 @@ static int cpufreq_governor_smartass(struct cpufreq_policy *new_policy,
 		pm_idle = cpufreq_idle;
 
 		this_smartass->cur_policy = new_policy;
+		this_smartass->cur_policy->max = CONFIG_MSM_CPU_FREQ_MAX;
+		this_smartass->cur_policy->min = CONFIG_MSM_CPU_FREQ_MIN;
+		this_smartass->cur_policy->cur = CONFIG_MSM_CPU_FREQ_MAX;
 		this_smartass->enable = 1;
 
 		// notice no break here!
@@ -563,9 +541,8 @@ static void smartass_suspend(int cpu, int suspend)
 						CPUFREQ_RELATION_H);
 		}
 	} else { // resume at max speed:
-		__cpufreq_driver_target(policy, sleep_wakeup_freq,
+		__cpufreq_driver_target(policy, policy->max,
 					CPUFREQ_RELATION_H);
-		reset_timer(smp_processor_id(), this_smartass);
 	}
 
 }
@@ -596,7 +573,6 @@ static int __init cpufreq_smartass_init(void)
 	down_rate_us = DEFAULT_DOWN_RATE_US;
 	up_min_freq = DEFAULT_UP_MIN_FREQ;
 	sleep_max_freq = DEFAULT_SLEEP_MAX_FREQ;
-        sleep_wakeup_freq = DEFAULT_SLEEP_WAKEUP_FREQ;
 	sample_rate_jiffies = DEFAULT_SAMPLE_RATE_JIFFIES;
 	ramp_up_step = DEFAULT_RAMP_UP_STEP;
 	max_ramp_down = DEFAULT_MAX_RAMP_DOWN;
@@ -645,5 +621,5 @@ static void __exit cpufreq_smartass_exit(void)
 module_exit(cpufreq_smartass_exit);
 
 MODULE_AUTHOR ("Erasmux");
-MODULE_DESCRIPTION ("'cpufreq_minmax' - A smart cpufreq governor optimized for the hero!");
+MODULE_DESCRIPTION ("'cpufreq_smartass' - A smart cpufreq governor");
 MODULE_LICENSE ("GPL");
